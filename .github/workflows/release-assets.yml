@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 env:
-  NODE_VERSION: '22'  # 使用 Node.js 22 版本
+  NODE_VERSION: '24'  # 使用 Node.js 22 版本
 
 jobs:
   build-and-release:
@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0  # 获取所有历史记录
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
