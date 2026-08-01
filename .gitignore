@@ -156,6 +156,8 @@ dist
 /clipboard.txt.bak
 /apps/cat/
 /data/temp/
+/.playwright-mcp/
+/data/source-checker/_fix_work/
 /scripts/mjs/index.db
 /scripts/test/rsa-test.json
 /apps/salary/
