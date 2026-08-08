@@ -1,0 +1,74 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+          # 如果需要使用自建 PAT，请把 GH_SYNC_TOKEN 设为 repository secret，并在下面取消注释：
+          # token: ${{ secrets.GH_SYNC_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 解决可能的 safe.directory 问题
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Add upstream and fetch main
+        run: |
+          git remote add upstream https://github.com/zourjke/drpy-node.git || true
+          git fetch upstream main --no-tags --depth=1
+
+      - name: Update files from upstream (no merge, just copy tree)
+        run: |
+          git checkout main
+          # 将 upstream/main 的文件内容检出到工作区（覆盖/新增/删除会体现在工作树）
+          git checkout upstream/main -- .
+          # 暂存并提交变更（如果有）
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No updates from upstream"
+          else
+            git commit -m "chore(sync): update files from upstream"
+          fi
+
+      - name: Remove upstream workflows but keep local Sync.yml
+        run: |
+          # 只删除 .github/workflows 下的文件（保留 Sync.yml），避免误删其他目录
+          mkdir -p .github/workflows
+          # 删除除 Sync.yml、Docker.yml、Release.yml 之外的所有文件
+          find .github/workflows -maxdepth 1 -type f ! -name 'Sync.yml' ! -name 'Docker.yml' ! -name 'Release.yml' -print -delete
+          # 删除空目录
+          find .github/workflows -type d -empty -delete || true
+          git add -A .github/workflows
+          if git diff --cached --quiet; then
+            echo "No workflow changes to commit"
+          else
+            git commit -m "chore(sync): remove upstream workflows, keep Sync.yml, Docker.yml, Release.yml"
+          fi
+
+      - name: Push changes
+        env:
+          # 如果使用自建 token，确保在 repository secrets 里配置 GH_SYNC_TOKEN，并在 Checkout 中启用 token
+          GIT_PUSH_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
+        run: |
+          # 如果使用自建 token，需要把 remote origin URL 用 token 包装，或 rely on checkout's persisted credentials
+          git push origin main
